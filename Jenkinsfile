@@ -13,9 +13,11 @@ pipeline {
     }
 
     triggers {
-        // Schedule: Monday–Friday
-        cron('30 4 * * 1-5')   // Start at 10:00 AM IST
-        cron('0 18 * * 1-5')   // Stop at 11:30 PM IST
+        // Combine both cron schedules into one block
+        cron('''
+            30 4 * * 1-5   // Start EC2 at 10:00 AM IST (4:30 UTC)
+            0 18 * * 1-5   // Stop EC2 at 11:30 PM IST (18:00 UTC)
+        ''')
     }
 
     stages {
@@ -76,4 +78,3 @@ pipeline {
         failure { echo "❌ ${params.ACTION} failed." }
     }
 }
-
