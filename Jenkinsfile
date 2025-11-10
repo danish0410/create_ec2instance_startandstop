@@ -1,91 +1,95 @@
 pipeline {
     agent any
 
-    parameters {
-        choice(name: 'ACTION', choices: ['apply', 'destroy', 'start', 'stop'], description: 'Choose what to do')
-    }
-
     environment {
-        TF_VAR_FILE        = "terraform.tfvars"
-        TERRAFORM_DIR      = "."
-        AWS_DEFAULT_REGION = "ap-south-1"
-        TERRAFORM_EXE      = "C:\\terraform\\bin\\terraform.exe"
-    }
-
-    triggers {
-        // Schedule: 10:00 AM IST (4:30 UTC) and 11:30 PM IST (18:00 UTC)
-        cron('30 4 * * 1-5\n0 18 * * 1-5')
+        TERRAFORM_PATH = 'C:\\terraform\\bin\\terraform.exe'
+        AWS_REGION = 'ap-south-1'
     }
 
     stages {
-
-        stage('Checkout SCM') {
-            steps {
-                git credentialsId: 'private-key-jenkins',
-                    url: 'git@github.com:danish0410/create_ec2instance_startandstop.git',
-                    branch: 'feature'
-            }
-        }
-
         stage('Terraform Init') {
-            when { expression { params.ACTION == 'apply' || params.ACTION == 'destroy' } }
             steps {
-                dir(env.TERRAFORM_DIR) {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
-                        bat "${env.TERRAFORM_EXE} init"
+                echo '🔧 Initializing Terraform...'
+                dir('infra') {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                        bat "${TERRAFORM_PATH} init"
                     }
                 }
             }
         }
 
-        stage('Manual Approval') {
+        stage('Manual Approval - Apply/Destroy') {
             steps {
                 script {
                     def userInput = input(
-                        id: 'Approval',
-                        message: "⚠️ Do you want to proceed with Terraform/EC2 ${params.ACTION}?",
+                        id: 'applyDestroyInput',
+                        message: '⚙️ Choose Terraform action:',
                         parameters: [
-                            choice(name: 'CONFIRM', choices: ['No', 'Yes'], description: 'Select Yes to continue')
+                            choice(
+                                name: 'ACTION',
+                                choices: ['apply', 'destroy'],
+                                description: 'Select whether to apply or destroy the infrastructure'
+                            )
                         ]
                     )
-                    if (userInput != 'Yes') {
-                        error "❌ User aborted the ${params.ACTION} operation."
-                    } else {
-                        echo "✅ User approved ${params.ACTION}."
-                    }
+                    env.USER_ACTION = userInput
+                    echo "✅ User selected: ${userInput}"
                 }
             }
         }
 
         stage('Terraform Apply/Destroy') {
-            when { expression { params.ACTION == 'apply' || params.ACTION == 'destroy' } }
             steps {
-                dir(env.TERRAFORM_DIR) {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
+                dir('infra') {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                         script {
-                            def cmd = (params.ACTION == 'apply') ? "apply" : "destroy"
-                            bat """
-                                ${env.TERRAFORM_EXE} ${cmd} ^
-                                    -var-file=${env.TF_VAR_FILE}
-                            """
+                            if (env.USER_ACTION == 'apply') {
+                                echo '🚀 Applying Terraform configuration...'
+                                bat "${TERRAFORM_PATH} apply -auto-approve -var-file=terraform.tfvars"
+                            } else {
+                                echo '🧹 Destroying Terraform resources...'
+                                bat "${TERRAFORM_PATH} destroy -auto-approve -var-file=terraform.tfvars"
+                            }
                         }
                     }
                 }
             }
         }
 
-        stage('Start/Stop EC2') {
-            when { expression { params.ACTION == 'start' || params.ACTION == 'stop' } }
+        stage('Manual Approval - Start/Stop EC2') {
             steps {
-                withAWS(credentials: 'aws-jenkins-creds', region: env.AWS_DEFAULT_REGION) {
+                script {
+                    def ec2Action = input(
+                        id: 'ec2StartStopInput',
+                        message: '💻 Choose EC2 action:',
+                        parameters: [
+                            choice(
+                                name: 'EC2_ACTION',
+                                choices: ['start', 'stop'],
+                                description: 'Select whether to start or stop EC2 instance'
+                            )
+                        ]
+                    )
+                    env.EC2_ACTION = ec2Action
+                    echo "✅ User selected EC2 action: ${ec2Action}"
+                }
+            }
+        }
+
+        stage('Start/Stop EC2') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     script {
-                        def instanceId = 'i-0908cb5ba8973ecc9'
-                        if (params.ACTION == 'start') {
-                            echo "🚀 Starting EC2 instance: ${instanceId}"
-                            bat "aws ec2 start-instances --instance-ids ${instanceId} --region ${env.AWS_DEFAULT_REGION}"
+                        if (env.EC2_ACTION == 'start') {
+                            echo '🟢 Starting EC2 instance...'
+                            bat """
+                            python scripts/manage_ec2.py start
+                            """
                         } else {
-                            echo "🛑 Stopping EC2 instance: ${instanceId}"
-                            bat "aws ec2 stop-instances --instance-ids ${instanceId} --region ${env.AWS_DEFAULT_REGION}"
+                            echo '🔴 Stopping EC2 instance...'
+                            bat """
+                            python scripts/manage_ec2.py stop
+                            """
                         }
                     }
                 }
@@ -95,10 +99,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ ${params.ACTION} completed successfully."
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo "❌ ${params.ACTION} failed."
+            echo '❌ Pipeline failed. Please check logs.'
         }
     }
 }
