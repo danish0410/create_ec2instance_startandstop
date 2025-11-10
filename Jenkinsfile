@@ -12,12 +12,9 @@ pipeline {
         TERRAFORM_EXE      = "C:\\terraform\\bin\\terraform.exe"
     }
 
+    // Use one valid cron trigger only (no comments allowed)
     triggers {
-        // Combine both cron schedules into one block
-        cron('''
-            30 4 * * 1-5   // Start EC2 at 10:00 AM IST (4:30 UTC)
-            0 18 * * 1-5   // Stop EC2 at 11:30 PM IST (18:00 UTC)
-        ''')
+        cron('30 4 * * 1-5\n0 18 * * 1-5')
     }
 
     stages {
