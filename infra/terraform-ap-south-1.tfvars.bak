@@ -1,0 +1,10 @@
+region        = "ap-south-1"
+vpc_name      = "ansible-vpc"
+vpc_cidr      = "10.0.0.0/16"
+ami           = "ami-00305d2fa3c93abfc"
+key_name      = "dev-classic-ap-south-1"
+windows_key   = "dev-classic-ap-south-1"
+instance_type = "t2.micro"
+
+# This line will be dynamically updated by update-bastion-ip.sh
+cidr_blocks_ingress_bastion = ["45.119.28.163/32"]
