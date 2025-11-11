@@ -10,11 +10,11 @@
 set -e
 
 # File to update
-TFVARS_FILE="terraform-ap-south-1.tfvars"
+TFVARS_FILE="terraform.tfvars"
 
 # Get current public IP
 echo "Fetching current public IP..."
-CURRENT_IP=$(curl -s https://checkip.amazonaws.com)
+CURRENT_IP=$(curl -s https://checkip.amazonaws.com | tr -d '[:space:]')
 
 # Validate IP format
 if [[ ! $CURRENT_IP =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -25,30 +25,28 @@ fi
 # Format as CIDR
 CIDR="${CURRENT_IP}/32"
 
-echo "✅ Current IP detected: $CIDR"
-echo "Updating $TFVARS_FILE ..."
+echo "✅ Detected public IP: $CIDR"
+echo "Updating ${TFVARS_FILE} ..."
 
-# Replace existing cidr_blocks_ingress_bastion line
-# This works whether or not whitespace or quotes differ
-sed -i.bak -E "s|^cidr_blocks_ingress_bastion *= *\[\"[0-9./]+\"\]|cidr_blocks_ingress_bastion = [\"${CIDR}\"]|" "$TFVARS_FILE"
-
-# If the line does not exist (edge case), append it
-if ! grep -q "cidr_blocks_ingress_bastion" "$TFVARS_FILE"; then
+# Replace or add line
+if grep -q "cidr_blocks_ingress_bastion" "$TFVARS_FILE"; then
+  sed -i.bak -E "s|cidr_blocks_ingress_bastion *= *\[\"[0-9./]+\"\]|cidr_blocks_ingress_bastion = [\"${CIDR}\"]|" "$TFVARS_FILE"
+else
   echo "" >> "$TFVARS_FILE"
   echo "cidr_blocks_ingress_bastion = [\"${CIDR}\"]" >> "$TFVARS_FILE"
 fi
 
-echo "✅ $TFVARS_FILE updated successfully!"
+echo "✅ ${TFVARS_FILE} updated successfully."
 echo "-----------------------------------------"
 grep "cidr_blocks_ingress_bastion" "$TFVARS_FILE"
 echo "-----------------------------------------"
 
-# Optional: auto-run Terraform
-read -p "Do you want to run 'terraform apply' now? [y/N]: " confirm
-if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-  echo "Running terraform init and apply..."
+# Ask to run Terraform
+read -p "Do you want to run 'terraform apply'? [y/N]: " confirm
+if [[ "$confirm" =~ ^[Yy]$ ]]; then
+  echo "🚀 Running Terraform..."
   terraform init -backend-config="backend-ap-south-1.hcl"
   terraform apply -var-file="$TFVARS_FILE" -auto-approve
 else
-  echo "Skipped Terraform apply. You can run it manually later."
+  echo "Skipped Terraform apply. Run manually later."
 fi

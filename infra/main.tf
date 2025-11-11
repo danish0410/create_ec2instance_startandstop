@@ -63,7 +63,7 @@ resource "aws_security_group" "public_ec2_sg" {
 # ────────────────────────────────────────────────
 # EC2 INSTANCE - PUBLIC ONLY
 # ────────────────────────────────────────────────
-resource "aws_instance" "public_ec2" {
+resource "aws_instance" "public_ec2_1" {
   ami                         = var.ami
   instance_type               = var.instance_type
   subnet_id                   = element(module.vpc.public_subnets, 0)
@@ -73,7 +73,35 @@ resource "aws_instance" "public_ec2" {
   user_data                   = file("${path.module}/dev_classic_userdata.sh")
 
   tags = {
-    Name = "public-ec2"
+    Name = "public-ec2-1"
+  }
+
+  # Optional: simple test provisioner
+  provisioner "remote-exec" {
+    inline = [
+      "echo 'Terraform EC2 setup complete!' > /home/ubuntu/setup-status.txt"
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("~/.ssh/${var.key_name}.pem")
+      host        = self.public_ip
+    }
+  }
+}
+
+resource "aws_instance" "public_ec2_2" {
+  ami                         = var.ami
+  instance_type               = var.instance_type
+  subnet_id                   = element(module.vpc.public_subnets, 0)
+  key_name                    = var.key_name
+  vpc_security_group_ids      = [aws_security_group.public_ec2_sg.id]
+  associate_public_ip_address = true
+  user_data                   = file("${path.module}/dev_classic_userdata.sh")
+
+  tags = {
+    Name = "public-ec2-2"
   }
 
   # Optional: simple test provisioner
