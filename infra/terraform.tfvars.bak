@@ -7,4 +7,4 @@ windows_key   = "dev-classic-ap-south-1"
 instance_type = "t2.micro"
 
 # This line will be dynamically updated by update-bastion-ip.sh
-cidr_blocks_ingress_bastion = ["49.204.132.42/32"]
+cidr_blocks_ingress_bastion = ["45.119.28.170/32"]

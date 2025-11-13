@@ -1,0 +1,17 @@
+{
+  "ap-south-1": [
+    { "Name": "public-ec2-2", "ID": "i-09b7855722f23ef6a" },
+    { "Name": "public-ec2-1", "ID": "i-01efcb74dba94e8fd" }
+  ],
+  "ap-south-2": [
+    { "Name": "DBServer", "ID": "i-0c123456789abc003" }
+  ],
+  "us-east-1": [
+    { "Name": "ProdServer", "ID": "i-0d123456789abc004" },
+    { "Name": "TestServer", "ID": "i-0e123456789abc005" }
+  ],
+  "us-west-2": [
+    { "Name": "WebServer", "ID": "i-0f123456789abc006" }
+  ]
+}
+
